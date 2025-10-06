@@ -5,9 +5,9 @@ import os
 DATA_PATH = "../data/base/2023_brazil_stocks.csv"
 df = pd.read_csv(DATA_PATH)
 
-# ===== Ensure date column is datetime (optional, useful later) =====
-if 'date' in df.columns:
-    df['date'] = pd.to_datetime(df['date'])
+# ===== Convert 'date' column to datetime =====
+# If it's an integer like 20230102, first convert to string
+df['date'] = pd.to_datetime(df['date'].astype(str), format='%Y%m%d')
 
 # ===== Define tickers you want to keep =====
 selected_tickers = ['PETR4', 'VALE3', 'ITUB4', 'BBDC4', 'ABEV3']
