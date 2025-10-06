@@ -52,7 +52,7 @@ desktop.ini
 *.swo
 
 # --- Data & Model Files ---
-data/
+data/base/
 datasets/
 models/
 checkpoints/
