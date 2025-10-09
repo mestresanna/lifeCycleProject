@@ -13,3 +13,13 @@ Our analysis focuses on two main components:
    The Ibovespa index serves as a key benchmark for the Brazilian stock market. By including funds that track this index, we can evaluate how **broader market trends** affect individual stock prices.
 
 Through this dataset, our goal is to gain analytical experience in **interpreting financial data**, understanding **market correlations**, and exploring how **macro-level indicators** (such as index performance) interact with **micro-level stock behavior**.
+
+
+## Features
+ - Day of the week : different days of the week may influence if a stock's price change, eg Monday & Fridays more agitated
+ - daily_return = (close - open) / open  - Simple return rate
+ - price_range = max - min - Intraday volatility
+ - volume_per_quantity = volume / quantity - Trade size indicator
+
+## Notes
+Only have data from january to 17 November
