@@ -9,16 +9,16 @@ import os
 
 # ---------- PIPELINE FUNCTIONS ----------
 
-def load_data(data_path: str, ibovespa_path: str) -> tuple[pd.DataFrame, pd.DataFrame]:
+def load_data(data_path: str, ibovespa_path: str, output_path: str = "../data/2023_selected_stocks.csv", tickers: list = ['PETR4', 'VALE3', 'ITUB4', 'BBDC4', 'ABEV3'] ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Load raw stock and benchmark (Ibovespa) data from CSV files.
     """
     stock_df = pd.read_csv(data_path, low_memory=False)
     stock_df['date'] = pd.to_datetime(stock_df['date'])
-    selected_tickers = ['PETR4', 'VALE3', 'ITUB4', 'BBDC4', 'ABEV3']
+    selected_tickers = tickers
     df_filtered = stock_df[stock_df['ticker'].isin(selected_tickers)]
     os.makedirs("data", exist_ok=True)
-    OUTPUT_PATH = "../data/2023_selected_stocks.csv"
+    OUTPUT_PATH = output_path
     df_filtered.to_csv(OUTPUT_PATH, index=False)
 
     stock_df = pd.read_csv(OUTPUT_PATH, low_memory=False)
@@ -62,6 +62,7 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
     df['day_of_week'] = df['day_of_week'].map(day_map)
 
     df.replace([float("inf"), float("-inf")], pd.NA, inplace=True)
+    df = df.infer_objects(copy=False)
     df.dropna(subset=['daily_return', 'price_range', 'volume_per_quantity'], inplace=True)
 
     df['target'] = df.groupby('ticker')['close'].shift(-1)
@@ -89,9 +90,11 @@ def save_data(df: pd.DataFrame, output_path: str):
 
 # ---------- MAIN EXECUTION PIPELINE ----------
 class DataPreprocessor():
-    def __init__(self, ibovespa_path: str = "../data/ibovespa_2023.csv", data_path: str = "../data/base/2023_brazil_stocks.csv"):
-        self.ibovespa_path = ibovespa_path
-        self.data_path = data_path
+    def __init__(self, **kwargs):
+        self.ibovespa_path = kwargs.get("ibovespa_path", "../data/ibovespa_2023.csv")
+        self.data_path = kwargs.get("data_path", "../data/base/2023_brazil_stocks.csv")
+        self.output_path = kwargs.get("output_path", "../data/2023_selected_stocks.csv")
+        self.tickers = kwargs.get("tickers", ['PETR4', 'VALE3', 'ITUB4', 'BBDC4', 'ABEV3'])
 
     def run_pipeline(self):
         """
@@ -105,7 +108,7 @@ class DataPreprocessor():
         output_path = "../data/2023_stock_with_features.csv"
 
         # Step 1: Load data
-        ds, ibov = load_data(self.data_path, self.ibovespa_path)
+        ds, ibov = load_data(self.data_path, self.ibovespa_path, self.output_path, self.tickers)
 
         # Step 2: Clean
         ds = clean_data(ds)
