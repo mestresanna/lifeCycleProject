@@ -52,38 +52,29 @@ def merge_benchmark(stock_df: pd.DataFrame, ibov_df: pd.DataFrame) -> pd.DataFra
 
 
 def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Create new analytical features:
-    - day_of_week
-    - daily_return
-    - price_range
-    - volume_per_quantity
-    """
     df['day_of_week'] = df['date'].dt.day_name()
     df['daily_return'] = (df['close'] - df['open']) / df['open']
     df['price_range'] = df['max'] - df['min']
     df['volume_per_quantity'] = df['volume'] / df['quantity']
 
-    # --- Convert day_of_week to numeric (1–7) ---
-    day_map = {
-        'Monday': 1,
-        'Tuesday': 2,
-        'Wednesday': 3,
-        'Thursday': 4,
-        'Friday': 5,
-        'Saturday': 6,
-        'Sunday': 7
-    }
+    # numeric day
+    day_map = {'Monday':1,'Tuesday':2,'Wednesday':3,'Thursday':4,'Friday':5,'Saturday':6,'Sunday':7}
     df['day_of_week'] = df['day_of_week'].map(day_map)
 
-    # Handle infinities and NaNs
     df.replace([float("inf"), float("-inf")], pd.NA, inplace=True)
     df.dropna(subset=['daily_return', 'price_range', 'volume_per_quantity'], inplace=True)
-    df['target'] = df.groupby('ticker')['close'].shift(-1)
-    df['rolling_volume'] = df.groupby('ticker')['volume'].shift(1).rolling(5).mean()
 
-    # splitting training data based on months and not random picked
-    df = df.sort_values(by='date')  # sort chronologically just in case
+    df['target'] = df.groupby('ticker')['close'].shift(-1)
+
+    # rolling features
+    grouped = df.groupby('ticker')
+    df['rolling_close_5'] = grouped['close'].shift(1).rolling(5).mean()
+    df['rolling_std_5'] = grouped['close'].shift(1).rolling(5).std()
+    df['rolling_return_5'] = grouped['daily_return'].shift(1).rolling(5).mean()
+    df['momentum_5'] = df['close'] / df['rolling_close_5'] - 1
+    df['rolling_volume_5'] = grouped['volume'].shift(1).rolling(5).mean()
+
+    df = df.sort_values('date')
     return df
 
 
