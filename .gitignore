@@ -54,7 +54,6 @@ desktop.ini
 # --- Data & Model Files ---
 data/base/
 datasets/
-models/
 checkpoints/
 *.h5
 *.hdf5
