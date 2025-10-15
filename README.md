@@ -1,4 +1,5 @@
 # LifeCycleProject
+# Predicting next day's close (positive / negative / neutral)
 
 ## Dataset Selection and Rationale
 
@@ -23,3 +24,12 @@ Through this dataset, our goal is to gain analytical experience in **interpretin
 
 ## Notes
 Only have data from january to 17 November
+
+
+
+
+## Leakage Guards
+
+- To prevent data leakage, all features used are derived only from data available at the end of each trading day, and the target is the next day’s closing price, constructed using a one-day forward shift. No future data is used in training or feature engineering.
+
+- In order to preserve the temporal structure of the data and prevent data leakage, the dataset was split chronologically. The model was trained on data from January to September 2023, and evaluated on unseen data from October to November 2023.
