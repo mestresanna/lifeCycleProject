@@ -99,7 +99,7 @@ def engineer_features(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
     df['momentum_5']        = df['close'] / df['rolling_close_5'] - 1
 
     # --- Multi-horizon features ---
-    horizons = [2, 5, 55]
+    horizons = [2, 5, 55, 220]
     new_predictors = []
 
     for horizon in horizons:

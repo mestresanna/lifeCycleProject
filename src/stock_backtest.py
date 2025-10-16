@@ -6,7 +6,7 @@ from sklearn.metrics import precision_score
 # -----------------------------
 # 1️⃣ Load Data
 # -----------------------------
-df = pd.read_csv("../data/2023_stock_with_features.csv")
+df = pd.read_csv("../data/2019-2023_stock_with_features_dif_tickers.csv")
 df['date'] = pd.to_datetime(df['date'])
 
 # -----------------------------
@@ -37,7 +37,7 @@ def engineer_features(df: pd.DataFrame):
     df['momentum_5'] = df['close'] / df['rolling_close_5'] - 1
 
     # Multi-horizon features
-    horizons = [2, 5, 55]
+    horizons = [2, 5, 55, 220]
     new_predictors = []
     for horizon in horizons:
         ratio_col = f"Close_Ratio_{horizon}"
@@ -66,7 +66,7 @@ df, features = engineer_features(df)
 # -----------------------------
 # 3️⃣ Define model
 # -----------------------------
-model = RandomForestClassifier(n_estimators=200, min_samples_split=50, random_state=1)
+model = RandomForestClassifier(n_estimators=200, min_samples_split=50, n_jobs=-1, random_state=1)
 
 # -----------------------------
 # 4️⃣ Helper functions
@@ -77,7 +77,7 @@ def predict(train, test, predictors, model, threshold=0.6):
     preds = (probs >= threshold).astype(int)
     return pd.DataFrame({'target': test['target'], 'Predictions': preds}, index=test.index)
 
-def backtest(df, model, features, start=50, step=220, threshold=0.6):
+def backtest(df, model, features, start=2500, step=220, threshold=0.6):
     all_preds = []
     for i in range(start, df.shape[0], step):
         train = df.iloc[:i].copy()
