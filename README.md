@@ -315,3 +315,11 @@ the overfitting ratio goes down to 1.17
 and precision goes up to:
 === Precision ===
 0.6959747727694305
+
+BEST GRID PARAMS:
+
+🔍 Testing params: {'max_depth': 3, 'learning_rate': 0.01, 'subsample': 0.8, 'colsample_bytree': 0.6, 'reg_lambda': 1}
+Average Train Precision: 0.790
+Average Test Precision:  0.694
+Overfitting Ratio:       1.14
+Balanced Score:          0.5969

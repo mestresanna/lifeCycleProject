@@ -5,6 +5,7 @@ from sklearn.preprocessing import PolynomialFeatures, StandardScaler
 from sklearn.pipeline import make_pipeline
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from xgboost import XGBClassifier
 
 from models.model_runner import ModelRunner
 from models.evaluator import ModelEvaluator
@@ -72,7 +73,8 @@ models = [
     ModelRunner(make_pipeline(StandardScaler(), SVC(kernel='rbf', C=1.0, probability=True)), name="SVC_rbf"),
     ModelRunner(RandomForestClassifier(n_estimators=200, max_depth=10, random_state=42), name="RandomForest"),
     ModelRunner(GradientBoostingClassifier(n_estimators=200, learning_rate=0.1, max_depth=4, random_state=42),
-                name="GradientBoosting")
+                name="GradientBoosting"),
+    ModelRunner(XGBClassifier(n_estimators=200, learning_rate=0.1, max_depth=4, random_state=42))
 ]
 
 # -----------------------------
@@ -97,11 +99,11 @@ print(results_df)
 # -----------------------------
 # 9️⃣ Optional: Feature Importances
 # -----------------------------
-for model in models:
-    fi = model.get_feature_importances()
-    if fi is not None:
-        print(f"\n=== Feature importances for {model.name} ===")
-        print(fi)
+# for model in models:
+#     fi = model.get_feature_importances()
+#     if fi is not None:
+#         print(f"\n=== Feature importances for {model.name} ===")
+#         print(fi)
 
 # -----------------------------
 # 10️⃣ Optional: Plots
