@@ -2,6 +2,8 @@
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import precision_score
+import time
+
 
 # -----------------------------
 # 1️⃣ Load Data
@@ -77,13 +79,24 @@ def predict(train, test, predictors, model, threshold=0.6):
     preds = (probs >= threshold).astype(int)
     return pd.DataFrame({'target': test['target'], 'Predictions': preds}, index=test.index)
 
-def backtest(df, model, features, start=2500, step=220, threshold=0.6):
+def backtest(df, model, features, start=220, step=440, threshold=0.6):
     all_preds = []
-    for i in range(start, df.shape[0], step):
-        train = df.iloc[:i].copy()
-        test = df.iloc[i:i+step].copy()
+    total_steps = (df.shape[0] - start) // step + 1
+    start_time = time.time()
+
+    for i, idx in enumerate(range(start, df.shape[0], step), 1):
+        train = df.iloc[:idx].copy()
+        test = df.iloc[idx:idx + step].copy()
         preds = predict(train, test, features, model, threshold)
         all_preds.append(preds)
+
+        # --- Timing & ETA ---
+        elapsed = time.time() - start_time
+        avg_per_step = elapsed / i
+        remaining_steps = total_steps - i
+        eta = remaining_steps * avg_per_step
+        print(f"Step {i}/{total_steps} done. Elapsed: {elapsed:.1f}s, ETA: {eta / 60:.1f} min")
+
     return pd.concat(all_preds)
 
 # -----------------------------
@@ -104,5 +117,5 @@ print(precision_score(predictions['target'], predictions['Predictions']))
 # -----------------------------
 # 7️⃣ Save predictions
 # -----------------------------
-predictions.to_csv("../data/backtest_predictions.csv", index=False)
-print("\n✅ Backtest predictions saved to '../data/backtest_predictions.csv'")
+# predictions.to_csv("../data/backtest_predictions.csv", index=False)
+# print("\n✅ Backtest predictions saved to '../data/backtest_predictions.csv'")

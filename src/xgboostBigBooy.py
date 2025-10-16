@@ -1,7 +1,9 @@
 # stock_backtest_xgb.py
 import pandas as pd
-from xgboost import XGBClassifier
+from xgboost  import XGBClassifier
 from sklearn.metrics import precision_score
+import time
+
 
 # -----------------------------
 # 1️⃣ Load Data
@@ -85,10 +87,7 @@ def predict(train, test, predictors, model, threshold=0.6):
     return pd.DataFrame({'target': test['target'], 'Predictions': preds}, index=test.index)
 
 
-import time
-
-
-def backtest(df, model, features, start=2500, step=220, threshold=0.6):
+def backtest(df, model, features, start=440, step=880, threshold=0.6):
     all_preds = []
     total_steps = (df.shape[0] - start) // step + 1
     start_time = time.time()

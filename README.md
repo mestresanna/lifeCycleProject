@@ -105,4 +105,105 @@ Only have data from January to November
    For better results, more rolling features were created and instead of using 1100 lines (only 2023), we chose to use more data (since 2019).
 
    Based on the results above, we removed features with very little correlation with the target.
-- 
+
+
+Using a RandomForest with backtesting and those parameters:
+start=440, step=880, threshold=0.6
+
+we managed to get those results:
+=== Prediction Distribution ===
+Predictions
+0    16800
+1     5147
+Name: count, dtype: int64
+
+=== Actual Distribution ===
+target
+0    0.507632
+1    0.492368
+Name: proportion, dtype: float64
+
+=== Precision ===
+0.6953565183602098
+
+But then when start=220 and step=440 we get better results
+=== Prediction Distribution ===
+Predictions
+0    16824
+1     5343
+Name: count, dtype: int64
+
+=== Actual Distribution ===
+target
+0    0.508188
+1    0.491812
+Name: proportion, dtype: float64
+
+=== Precision ===
+0.7037244993449373
+
+At first we suspected that this might've been an overfit situation since 70% is quite high.
+
+
+
+
+- trying to use xgboost to improve random forest:
+model = XGBClassifier(
+    n_estimators=200,
+    max_depth=6,
+    learning_rate=0.1,
+    objective='binary:logistic',
+    tree_method='gpu_hist',  # GPU acceleration
+    predictor='gpu_predictor',
+    random_state=1
+)
+those parameters result on this:
+=== Prediction Distribution ===
+Predictions
+0    14647
+1     7300
+Name: count, dtype: int64
+
+=== Actual Distribution ===
+target
+0    0.507632
+1    0.492368
+Name: proportion, dtype: float64
+
+=== Precision ===
+0.6363013698630137
+
+
+
+
+- after trying to improve the xgboost parameters
+model = XGBClassifier(
+    n_estimators=800,
+    max_depth=6,
+    learning_rate=0.03,
+    subsample=0.8,
+    colsample_bytree=0.8,
+    gamma=0.1,
+    reg_alpha=0.1,
+    reg_lambda=1,
+    objective='binary:logistic',
+    tree_method='gpu_hist',
+    predictor='gpu_predictor',
+    random_state=1
+)
+
+those parameters result on this:
+=== Prediction Distribution ===
+Predictions
+0    14242
+1     7705
+Name: count, dtype: int64
+
+=== Actual Distribution ===
+target
+0    0.507632
+1    0.492368
+Name: proportion, dtype: float64
+
+=== Precision ===
+0.6321868916288125
