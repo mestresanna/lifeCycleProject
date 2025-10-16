@@ -52,41 +52,36 @@ def merge_benchmark(stock_df: pd.DataFrame, ibov_df: pd.DataFrame) -> pd.DataFra
 
 
 def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Create new analytical features:
-    - day_of_week
-    - daily_return
-    - price_range
-    - volume_per_quantity
-    """
     df['day_of_week'] = df['date'].dt.day_name()
     df['daily_return'] = (df['close'] - df['open']) / df['open']
     df['price_range'] = df['max'] - df['min']
     df['volume_per_quantity'] = df['volume'] / df['quantity']
 
-    # --- Convert day_of_week to numeric (1–7) ---
-    day_map = {
-        'Monday': 1,
-        'Tuesday': 2,
-        'Wednesday': 3,
-        'Thursday': 4,
-        'Friday': 5,
-        'Saturday': 6,
-        'Sunday': 7
-    }
+    # numeric day
+    day_map = {'Monday':1,'Tuesday':2,'Wednesday':3,'Thursday':4,'Friday':5}
     df['day_of_week'] = df['day_of_week'].map(day_map)
 
-    # Handle infinities and NaNs
     df.replace([float("inf"), float("-inf")], pd.NA, inplace=True)
     df = df.infer_objects(copy=False)
     df.dropna(subset=['daily_return', 'price_range', 'volume_per_quantity'], inplace=True)
+
+    # target = next day's close within each ticker
     df['target'] = df.groupby('ticker')['close'].shift(-1)
-    df['rolling_volume'] = df.groupby('ticker')['volume'].shift(1).rolling(5).mean()
 
-    # splitting training data based on months and not random picked
-    df = df.sort_values(by='date')  # sort chronologically just in case
+    # ✅ Proper rolling features
+    df['rolling_close_5']   = df.groupby('ticker')['close'].transform(lambda x: x.shift(1).rolling(5).mean())
+    df['rolling_std_5']     = df.groupby('ticker')['close'].transform(lambda x: x.shift(1).rolling(5).std())
+    df['rolling_return_5']  = df.groupby('ticker')['daily_return'].transform(lambda x: x.shift(1).rolling(5).mean())
+    df['rolling_volume_5']  = df.groupby('ticker')['volume'].transform(lambda x: x.shift(1).rolling(5).mean())
+    df['momentum_5']        = df['close'] / df['rolling_close_5'] - 1
+
+    # Drop rows with NaNs introduced by rolling calculations
+    df = df.dropna(subset=[
+        'rolling_close_5', 'rolling_std_5', 'rolling_return_5',
+        'momentum_5', 'rolling_volume_5', 'target'
+    ])
+
     return df
-
 
 def save_data(df: pd.DataFrame, output_path: str):
     """
@@ -114,7 +109,7 @@ class DataPreprocessor():
         4. Engineer new features
         5. Save final dataset
         """
-        output_path = "../data/2023_stock_with_features_dif_tickers.csv"
+        output_path = "../data/2023_stock_with_features.csv"
 
         # Step 1: Load data
         ds, ibov = load_data(self.data_path, self.ibovespa_path, self.output_path, self.tickers)

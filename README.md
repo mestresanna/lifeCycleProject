@@ -104,4 +104,5 @@ Only have data from January to November
    It's notable that we inserted certain rolling parameters for tuning results, which has in fact enhanced the model.
    For better results, more rolling features were created and instead of using 1100 lines (only 2023), we chose to use more data (since 2019).
 
-   
+   Based on the results above, we removed features with very little correlation with the target.
+- 

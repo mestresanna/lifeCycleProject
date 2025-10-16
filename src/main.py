@@ -19,7 +19,7 @@ df['day_of_week'] = df['date'].dt.dayofweek
 # === Create target: direction (up/down/neutral) based on next day's close ===
 df['next_return'] = df.groupby('ticker')['close'].shift(-1) / df['close'] - 1
 
-threshold = 0.0  # Can adjust (e.g., 0.001 for ignoring small movements)
+threshold = 0.001  # Can adjust (e.g., 0.001 for ignoring small movements)
 df['direction'] = df['next_return'].apply(
     lambda x: 'up' if x > threshold else ('down' if x < -threshold else 'neutral')
 )
@@ -34,8 +34,16 @@ test_df = df[df['date'] >= split_date]
 # === Feature selection ===
 features = [
     'open', 'close', 'min', 'max', 'avg', 'quantity', 'volume',
-    'ibovespa_close', 'day_of_week', 'daily_return', 'price_range', 'volume_per_quantity'
+    'ibovespa_close', 'day_of_week', 'daily_return', 'price_range', 'volume_per_quantity',
+    'rolling_close_5', 'rolling_std_5', 'rolling_return_5', 'momentum_5', 'rolling_volume_5'
 ]
+
+missing = [f for f in features if f not in df.columns]
+if missing:
+    raise ValueError(f"Missing features in dataframe: {missing}")
+
+# Drop rows with NaNs introduced by rolling windows
+df = df.dropna(subset=features + ['direction'])
 
 X_train = train_df[features]
 y_train = train_df['direction']
@@ -76,8 +84,16 @@ results_df = evaluator.get_results_dataframe()
 print("\n=== Model Performance Summary ===")
 print(results_df)
 
-# === Plot confusion matrices ===
-evaluator.plot_confusion_matrices()
+# # === Feature importances for tree-based models ===
+# for model in models:
+#     fi = model.get_feature_importances()
+#     if fi is not None:
+#         print(f"\n=== Feature importances for {model.name} ===")
+#         print(fi)
 
-# === Plot metric comparison ===
-evaluator.plot_metric_comparison()
+
+# # === Plot confusion matrices ===
+# evaluator.plot_confusion_matrices()
+#
+# # === Plot metric comparison ===
+# evaluator.plot_metric_comparison()
