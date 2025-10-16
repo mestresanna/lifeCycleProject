@@ -1,9 +1,7 @@
-# stock_backtest_xgb.py
 import pandas as pd
-from xgboost  import XGBClassifier
+from xgboost import XGBClassifier
 from sklearn.metrics import precision_score
 import time
-
 
 # -----------------------------
 # 1️⃣ Load Data
@@ -15,7 +13,6 @@ df['date'] = pd.to_datetime(df['date'])
 # 2️⃣ Engineer features & binary target
 # -----------------------------
 def engineer_features(df: pd.DataFrame):
-    # Basic derived features
     df['day_of_week'] = df['date'].dt.day_name()
     df['daily_return'] = (df['close'] - df['open']) / df['open']
     df['price_range'] = df['max'] - df['min']
@@ -27,18 +24,15 @@ def engineer_features(df: pd.DataFrame):
     df.replace([float("inf"), float("-inf")], pd.NA, inplace=True)
     df.dropna(subset=['daily_return', 'price_range', 'volume_per_quantity'], inplace=True)
 
-    # Tomorrow and binary target
     df['tomorrow'] = df.groupby('ticker')['close'].shift(-1)
     df['target'] = (df['tomorrow'] > df['close']).astype(int)
 
-    # Rolling features
     df['rolling_close_5'] = df.groupby('ticker')['close'].transform(lambda x: x.shift(1).rolling(5).mean())
     df['rolling_std_5'] = df.groupby('ticker')['close'].transform(lambda x: x.shift(1).rolling(5).std())
     df['rolling_return_5'] = df.groupby('ticker')['daily_return'].transform(lambda x: x.shift(1).rolling(5).mean())
     df['rolling_volume_5'] = df.groupby('ticker')['volume'].transform(lambda x: x.shift(1).rolling(5).mean())
     df['momentum_5'] = df['close'] / df['rolling_close_5'] - 1
 
-    # Multi-horizon features
     horizons = [2, 5, 55, 220]
     new_predictors = []
     for horizon in horizons:
@@ -48,12 +42,8 @@ def engineer_features(df: pd.DataFrame):
         df[trend_col] = df.groupby('ticker')['target'].transform(lambda x: x.shift(1).rolling(horizon).sum())
         new_predictors += [ratio_col, trend_col]
 
-    # Drop NaNs
-    df.dropna(subset=[
-        'rolling_close_5','rolling_std_5','rolling_return_5',
-        'rolling_volume_5','momentum_5','target'] + new_predictors, inplace=True)
+    df.dropna(subset=['rolling_close_5','rolling_std_5','rolling_return_5','rolling_volume_5','momentum_5','target'] + new_predictors, inplace=True)
 
-    # Final feature list
     features = [
         'open','close','min','max','avg','quantity','volume',
         'ibovespa_close','day_of_week','daily_return','price_range','volume_per_quantity',
@@ -65,48 +55,60 @@ def engineer_features(df: pd.DataFrame):
 df, features = engineer_features(df)
 
 # -----------------------------
+# 🎯 Drop low-importance features
+# -----------------------------
+drop_features = ['open','close','min','max','avg','daily_return','rolling_close_5','Trend_220','Close_Ratio_2']
+features = [f for f in features if f not in drop_features]
+
+# -----------------------------
 # 3️⃣ Define GPU XGBoost model
 # -----------------------------
 model = XGBClassifier(
     n_estimators=200,
-    max_depth=6,
-    learning_rate=0.1,
-    objective='binary:logistic',
-    tree_method='gpu_hist',  # GPU acceleration
-    predictor='gpu_predictor',
+    max_depth=3,
+    learning_rate=0.05,
+    subsample=0.6,
+    colsample_bytree=0.6,
+    gamma=0.3,
+    reg_alpha=2,
+    reg_lambda=8,
+    tree_method='gpu_hist',
     random_state=1
 )
 
 # -----------------------------
-# 4️⃣ Helper functions
+# 4️⃣ Backtest helper
 # -----------------------------
-def predict(train, test, predictors, model, threshold=0.6):
-    model.fit(train[predictors], train['target'])
-    probs = model.predict_proba(test[predictors])[:, 1]
-    preds = (probs >= threshold).astype(int)
-    return pd.DataFrame({'target': test['target'], 'Predictions': preds}, index=test.index)
-
-
-def backtest(df, model, features, start=440, step=880, threshold=0.6):
+def backtest(df, model, features, start=1000, step=1000, threshold=0.6):
     all_preds = []
-    total_steps = (df.shape[0] - start) // step + 1
-    start_time = time.time()
+
+    train_precisions, test_precisions = [], []
 
     for i, idx in enumerate(range(start, df.shape[0], step), 1):
         train = df.iloc[:idx].copy()
         test = df.iloc[idx:idx + step].copy()
-        preds = predict(train, test, features, model, threshold)
+
+        model.fit(train[features], train['target'])
+        train_preds = (model.predict_proba(train[features])[:,1] >= threshold).astype(int)
+        test_preds = (model.predict_proba(test[features])[:,1] >= threshold).astype(int)
+
+        train_prec = precision_score(train['target'], train_preds)
+        test_prec = precision_score(test['target'], test_preds)
+
+        train_precisions.append(train_prec)
+        test_precisions.append(test_prec)
+
+        preds = pd.DataFrame({'target': test['target'], 'Predictions': test_preds}, index=test.index)
         all_preds.append(preds)
 
-        # --- Timing & ETA ---
-        elapsed = time.time() - start_time
-        avg_per_step = elapsed / i
-        remaining_steps = total_steps - i
-        eta = remaining_steps * avg_per_step
-        print(f"Step {i}/{total_steps} done. Elapsed: {elapsed:.1f}s, ETA: {eta / 60:.1f} min")
+    avg_train = sum(train_precisions) / len(train_precisions)
+    avg_test = sum(test_precisions) / len(test_precisions)
+    overfit_ratio = avg_train / avg_test
+    print(f"Average Train Precision: {avg_train:.3f}")
+    print(f"Average Test Precision:  {avg_test:.3f}")
+    print(f"Overfitting Ratio: {overfit_ratio:.2f}")
 
     return pd.concat(all_preds)
-
 
 # -----------------------------
 # 5️⃣ Run backtest
@@ -114,7 +116,14 @@ def backtest(df, model, features, start=440, step=880, threshold=0.6):
 predictions = backtest(df, model, features)
 
 # -----------------------------
-# 6️⃣ Evaluate
+# 6️⃣ Feature importance
+# -----------------------------
+importances = model.get_booster().get_score(importance_type='gain')
+for feature, score in sorted(importances.items(), key=lambda x: x[1], reverse=True):
+    print(f"{feature:<25} {score:.2f}")
+
+# -----------------------------
+# 7️⃣ Final evaluation
 # -----------------------------
 print("=== Prediction Distribution ===")
 print(predictions['Predictions'].value_counts())
@@ -122,9 +131,3 @@ print("\n=== Actual Distribution ===")
 print(predictions['target'].value_counts(normalize=True))
 print("\n=== Precision ===")
 print(precision_score(predictions['target'], predictions['Predictions']))
-
-# -----------------------------
-# 7️⃣ Save predictions
-# -----------------------------
-predictions.to_csv("../data/backtest_predictions_xgb.csv", index=False)
-print("\n✅ Backtest predictions saved to '../data/backtest_predictions_xgb.csv'")

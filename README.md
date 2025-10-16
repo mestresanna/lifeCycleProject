@@ -146,6 +146,8 @@ Only have data from January to November
    Based on the results above, we removed features with very little correlation with the target.
 
 
+## RANDOM FOREST
+
 Using a RandomForest with backtesting and those parameters:
 start=440, step=880, threshold=0.6
 
@@ -186,6 +188,12 @@ At first we suspected that this might've been an overfit situation since 70% is 
 
 
 
+
+
+
+
+
+### XGBOOST
 - trying to use xgboost to improve random forest:
 model = XGBClassifier(
     n_estimators=200,
@@ -213,7 +221,7 @@ Name: proportion, dtype: float64
 0.6363013698630137
 
 
-
+ 
 
 - after trying to improve the xgboost parameters
 model = XGBClassifier(
@@ -246,3 +254,64 @@ Name: proportion, dtype: float64
 
 === Precision ===
 0.6321868916288125
+
+
+
+
+
+in order to reduce overfitting we changed our start=440 and step=880 to something like:
+start=2500, step=220
+
+but doing this previous one only enhanced overfitting to 2.6
+
+
+now for start=1000 and step=1000 overfitting reduced to 1.16 (very good)
+
+
+
+After analyzing the importance distribution
+
+Close_Ratio_5 26.57 momentum_5 24.92 Trend_2 11.20 ibovespa_close 9.48 rolling_std_5 8.36 Close_Ratio_2 8.28 Trend_5 6.82 Close_Ratio_55 6.12 day_of_week 6.04 volume_per_quantity 5.99 max 5.27 Trend_55 5.27 daily_return 5.11 rolling_close_5 5.11 Close_Ratio_220 5.08 rolling_return_5 4.97 avg 4.87 close 4.81 price_range 4.76 quantity 4.69 min 4.57 rolling_volume_5 4.45 volume 4.43 Trend_220 4.42 open 4.33
+
+we noticed that some features should be dropped for scoring to low and possibly causing the mode to overfit.
+
+open
+close
+min
+max
+avg
+daily_return
+rolling_close_5
+Trend_220
+Close_Ratio_2
+
+
+Those features were dropped and the results were not overfitting anymore
+Average Train Precision: 0.811
+Average Test Precision:  0.769
+Overfitting Ratio: 1.05
+
+=== Precision ===
+0.6718297872340425
+
+
+now with this:
+model = XGBClassifier(
+    n_estimators=200,
+    max_depth=3,              # shallower trees
+    learning_rate=0.05,
+    subsample=0.6,            # less data per tree
+    colsample_bytree=0.6,     # less features per tree
+    gamma=0.3,                # more conservative split penalty
+    reg_alpha=2,              # L1 penalty
+    reg_lambda=8,             # L2 penalty
+    tree_method='gpu_hist',
+    random_state=1
+) 
+
+and start=1000 and step=1000
+
+the overfitting ratio goes down to 1.17
+and precision goes up to:
+=== Precision ===
+0.6959747727694305
