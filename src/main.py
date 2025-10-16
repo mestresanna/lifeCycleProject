@@ -1,3 +1,4 @@
+# main.py
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import PolynomialFeatures, StandardScaler
@@ -7,44 +8,53 @@ from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 
 from models.model_runner import ModelRunner
 from models.evaluator import ModelEvaluator
+from preprocessing_pipeline import DataPreprocessor, engineer_features
 
-# === Load & preprocess data ===
-df = pd.read_csv("../data/2023_stock_with_features.csv")
-df['date'] = pd.to_datetime(df['date'])
+# -----------------------------
+# 1️⃣ Preprocess / Load Data
+# -----------------------------
+preprocessor = DataPreprocessor()
+df = preprocessor.run_pipeline()  # Loads, cleans, merges, engineers features, saves
+
 df = df.sort_values(by='date')
 
-# Replace day names with integers: Monday=0, ..., Sunday=6
-df['day_of_week'] = df['date'].dt.dayofweek
+# Map day_of_week to integer (Monday=1,...,Friday=5)
+df['day_of_week'] = df['date'].dt.day_name().map({'Monday':1,'Tuesday':2,'Wednesday':3,'Thursday':4,'Friday':5})
 
-# === Create target: direction (up/down/neutral) based on next day's close ===
-df['next_return'] = df.groupby('ticker')['close'].shift(-1) / df['close'] - 1
-
-threshold = 0.0  # Can adjust (e.g., 0.001 for ignoring small movements)
-df['direction'] = df['next_return'].apply(
-    lambda x: 'up' if x > threshold else ('down' if x < -threshold else 'neutral')
-)
-
-df = df.dropna(subset=['direction'])
-
-# === Train/test split ===
+# -----------------------------
+# 2️⃣ Train/Test Split
+# -----------------------------
 split_date = "2023-08-01"
 train_df = df[df['date'] < split_date]
 test_df = df[df['date'] >= split_date]
 
-# === Feature selection ===
+# -----------------------------
+# 3️⃣ Feature Selection
+# -----------------------------
 features = [
     'open', 'close', 'min', 'max', 'avg', 'quantity', 'volume',
-    'ibovespa_close', 'day_of_week', 'daily_return', 'price_range', 'volume_per_quantity'
+    'ibovespa_close', 'day_of_week', 'daily_return', 'price_range', 'volume_per_quantity',
+    'rolling_close_5', 'rolling_std_5', 'rolling_return_5', 'momentum_5', 'rolling_volume_5'
 ]
 
-X_train = train_df[features]
-y_train = train_df['direction']
-X_test = test_df[features]
-y_test = test_df['direction']
+# Check missing features
+missing = [f for f in features if f not in df.columns]
+if missing:
+    raise ValueError(f"Missing features in dataframe: {missing}")
 
-# === Scale numeric features ===
+# Drop NaNs caused by rolling features
+df = df.dropna(subset=features + ['target'])
+
+X_train = train_df[features]
+y_train = train_df['target']
+X_test = test_df[features]
+y_test = test_df['target']
+
+# -----------------------------
+# 4️⃣ Scale numeric features
+# -----------------------------
 scaler = StandardScaler()
-cols_to_scale = [col for col in features if col != 'day_of_week']  # Don't scale day_of_week
+cols_to_scale = [col for col in features if col != 'day_of_week']
 
 X_train_scaled = X_train.copy()
 X_train_scaled[cols_to_scale] = scaler.fit_transform(X_train_scaled[cols_to_scale])
@@ -52,10 +62,12 @@ X_train_scaled[cols_to_scale] = scaler.fit_transform(X_train_scaled[cols_to_scal
 X_test_scaled = X_test.copy()
 X_test_scaled[cols_to_scale] = scaler.transform(X_test_scaled[cols_to_scale])
 
-# === Define classification models ===
+# -----------------------------
+# 5️⃣ Define Models
+# -----------------------------
 models = [
     ModelRunner(LogisticRegression(max_iter=1000), name="LogisticRegression"),
-    ModelRunner(make_pipeline(PolynomialFeatures(2), LogisticRegression(multi_class='multinomial', max_iter=1000)),
+    ModelRunner(make_pipeline(PolynomialFeatures(2), LogisticRegression(max_iter=1000)),
                 name="PolynomialLogistic_deg2"),
     ModelRunner(make_pipeline(StandardScaler(), SVC(kernel='rbf', C=1.0, probability=True)), name="SVC_rbf"),
     ModelRunner(RandomForestClassifier(n_estimators=200, max_depth=10, random_state=42), name="RandomForest"),
@@ -63,21 +75,36 @@ models = [
                 name="GradientBoosting")
 ]
 
-# === Initialize evaluator ===
-evaluator = ModelEvaluator(class_labels=['up', 'down', 'neutral'])
+# -----------------------------
+# 6️⃣ Initialize Evaluator
+# -----------------------------
+evaluator = ModelEvaluator(class_labels=[0, 1])
 
-# === Evaluate models ===
+# -----------------------------
+# 7️⃣ Evaluate Models
+# -----------------------------
 for model in models:
     model.fit(X_train_scaled, y_train)
     evaluator.evaluate(model, X_test_scaled, y_test)
 
-# === Print results table ===
+# -----------------------------
+# 8️⃣ Display Results
+# -----------------------------
 results_df = evaluator.get_results_dataframe()
 print("\n=== Model Performance Summary ===")
 print(results_df)
 
-# === Plot confusion matrices ===
-evaluator.plot_confusion_matrices()
+# -----------------------------
+# 9️⃣ Optional: Feature Importances
+# -----------------------------
+for model in models:
+    fi = model.get_feature_importances()
+    if fi is not None:
+        print(f"\n=== Feature importances for {model.name} ===")
+        print(fi)
 
-# === Plot metric comparison ===
-evaluator.plot_metric_comparison()
+# -----------------------------
+# 10️⃣ Optional: Plots
+# evaluator.plot_confusion_matrices()
+# evaluator.plot_metric_comparison()
+# -----------------------------

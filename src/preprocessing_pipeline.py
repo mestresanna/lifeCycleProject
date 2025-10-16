@@ -51,32 +51,63 @@ def merge_benchmark(stock_df: pd.DataFrame, ibov_df: pd.DataFrame) -> pd.DataFra
     return merged
 
 
-def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
+def engineer_features(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
+    # --- Basic derived features ---
     df['day_of_week'] = df['date'].dt.day_name()
     df['daily_return'] = (df['close'] - df['open']) / df['open']
     df['price_range'] = df['max'] - df['min']
     df['volume_per_quantity'] = df['volume'] / df['quantity']
 
-    # numeric day
-    day_map = {'Monday':1,'Tuesday':2,'Wednesday':3,'Thursday':4,'Friday':5,'Saturday':6,'Sunday':7}
+    day_map = {'Monday':1,'Tuesday':2,'Wednesday':3,'Thursday':4,'Friday':5}
     df['day_of_week'] = df['day_of_week'].map(day_map)
 
     df.replace([float("inf"), float("-inf")], pd.NA, inplace=True)
     df = df.infer_objects(copy=False)
     df.dropna(subset=['daily_return', 'price_range', 'volume_per_quantity'], inplace=True)
 
-    df['target'] = df.groupby('ticker')['close'].shift(-1)
+    # --- Tomorrow ---
+    df['tomorrow'] = df.groupby('ticker')['close'].shift(-1)
 
-    # rolling features
-    grouped = df.groupby('ticker')
-    df['rolling_close_5'] = grouped['close'].shift(1).rolling(5).mean()
-    df['rolling_std_5'] = grouped['close'].shift(1).rolling(5).std()
-    df['rolling_return_5'] = grouped['daily_return'].shift(1).rolling(5).mean()
-    df['momentum_5'] = df['close'] / df['rolling_close_5'] - 1
-    df['rolling_volume_5'] = grouped['volume'].shift(1).rolling(5).mean()
+    # --- Target ---
+    df["target"] = (df["tomorrow"] > df["close"]).astype(int)
 
-    df = df.sort_values('date')
-    return df
+    # --- Rolling features ---
+    df['rolling_close_5']   = df.groupby('ticker')['close'].transform(lambda x: x.shift(1).rolling(5).mean())
+    df['rolling_std_5']     = df.groupby('ticker')['close'].transform(lambda x: x.shift(1).rolling(5).std())
+    df['rolling_return_5']  = df.groupby('ticker')['daily_return'].transform(lambda x: x.shift(1).rolling(5).mean())
+    df['rolling_volume_5']  = df.groupby('ticker')['volume'].transform(lambda x: x.shift(1).rolling(5).mean())
+    df['momentum_5']        = df['close'] / df['rolling_close_5'] - 1
+
+    # --- Multi-horizon features ---
+    horizons = [2, 5, 55]
+    new_predictors = []
+
+    for horizon in horizons:
+        ratio_col = f"Close_Ratio_{horizon}"
+        df[ratio_col] = df.groupby('ticker')['close'].transform(lambda x: x / x.rolling(horizon).mean())
+
+        trend_col = f"Trend_{horizon}"
+        df[trend_col] = df.groupby('ticker')['target'].transform(lambda x: x.shift(1).rolling(horizon).sum())
+
+        new_predictors += [ratio_col, trend_col]
+
+    # --- Drop NaNs from rolling features ---
+    df.dropna(subset=[
+        'rolling_close_5', 'rolling_std_5', 'rolling_return_5',
+        'momentum_5', 'rolling_volume_5', 'target'
+    ] + new_predictors, inplace=True)
+
+    # Drop any other NaNs except for 'tomorrow'
+    df = df.dropna(subset=df.columns[df.columns != "tomorrow"])
+
+    # --- Final features ---
+    features = [
+        'open', 'close', 'min', 'max', 'avg', 'quantity', 'volume',
+        'ibovespa_close', 'day_of_week', 'daily_return', 'price_range', 'volume_per_quantity',
+        'rolling_close_5', 'rolling_std_5', 'rolling_return_5', 'momentum_5', 'rolling_volume_5'
+    ] + new_predictors
+
+    return df, features
 
 
 def save_data(df: pd.DataFrame, output_path: str):
@@ -105,7 +136,7 @@ class DataPreprocessor():
         4. Engineer new features
         5. Save final dataset
         """
-        output_path = "../data/2023_stock_with_features_dif_tickers.csv"
+        output_path = "../data/2023_stock_with_features.csv"
 
         # Step 1: Load data
         ds, ibov = load_data(self.data_path, self.ibovespa_path, self.output_path, self.tickers)
@@ -117,7 +148,7 @@ class DataPreprocessor():
         ds = merge_benchmark(ds, ibov)
 
         # Step 4: Feature engineering
-        ds = engineer_features(ds)
+        ds, _ = engineer_features(ds)
 
         # Step 5: Save
         save_data(ds, output_path)
