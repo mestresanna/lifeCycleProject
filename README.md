@@ -104,6 +104,45 @@ Only have data from January to November
    It's notable that we inserted certain rolling parameters for tuning results, which has in fact enhanced the model.
    For better results, more rolling features were created and instead of using 1100 lines (only 2023), we chose to use more data (since 2019).
 
+    We checked the performance on our training data to see if we were overfitting.
+
+      === Model Performance Summary Train Data ===
+                                 accuracy  precision    recall        f1
+        model                                                           
+        GradientBoosting         1.000000   1.000000  1.000000  1.000000
+        RandomForest             0.974286   0.982576  0.810145  0.858919
+        PolynomialLogistic_deg2  0.658571   0.771107  0.498536  0.523959
+        SVC_rbf                  0.624286   0.418479  0.433043  0.422695
+        LogisticRegression       0.552857   0.369615  0.382475  0.370532
+    
+    The Gradient Boosting model achieved perfect accuracy and F1 score on the training set, indicating potential overfitting and the need for validation on unseen data. Random Forest also performed very well, suggesting it captures meaningful structure but might require regularization to prevent overfitting. Simpler models such as Logistic Regression and SVC performed substantially worse, implying that linear decision boundaries are insufficient to capture the complexity of the data. Overall, these results highlight the importance of testing model generalization on validation or test data before drawing conclusions about predictive power.
+
+    We create a mutual information (MI) feature selection to find the most informative features to clean the dataset once more with proper features for our models.
+
+        === Mutual Information Scores ===
+                        Feature  MutualInformation
+        7        ibovespa_close           0.157941
+        13        rolling_std_5           0.059836
+        12      rolling_close_5           0.042649
+        2                   min           0.028554
+        10          price_range           0.028293
+        15           momentum_5           0.023795
+        8           day_of_week           0.014554
+        6                volume           0.012470
+        11  volume_per_quantity           0.009892
+        4                   avg           0.008255
+        16     rolling_volume_5           0.006924
+        9          daily_return           0.003451
+        0                  open           0.000000
+        5              quantity           0.000000
+        3                   max           0.000000
+        1                 close           0.000000
+        14     rolling_return_5           0.000000
+
+    We conclude that the features with 0.0 mutual information must be removed. And based on the Feature importance, model importance, we removed features that showed very little correlation with the model and zero or very low mutual information.
+    We remove; day_of_week, avg, max, min, open, close, volume_per_quantity. 
+    
+    We decided to keep rolling_return_5 and quantity, besides they scored 0 in mutual information, because we can see that it is useful empirically. 
    Based on the results above, we removed features with very little correlation with the target.
 
 
