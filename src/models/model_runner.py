@@ -1,4 +1,4 @@
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from sklearn.base import is_classifier
 
 class ModelRunner:
     def __init__(self, model, name=None):
@@ -11,11 +11,16 @@ class ModelRunner:
     def predict(self, X_test):
         return self.model.predict(X_test)
 
-    def evaluate(self, X_test, y_test):
-        preds = self.predict(X_test)
-        return {
-            "accuracy": accuracy_score(y_test, preds),
-            "precision": precision_score(y_test, preds, average='macro', zero_division=0),
-            "recall": recall_score(y_test, preds, average='macro', zero_division=0),
-            "f1": f1_score(y_test, preds, average='macro', zero_division=0)
-        }
+    def get_feature_importances(self):
+        """
+        Returns a dictionary {feature_name: importance} if the underlying
+        model supports feature_importances_ attribute (trees). Otherwise None.
+        """
+        if hasattr(self.model, "feature_importances_"):
+            return dict(zip(self.model.feature_names_in_, self.model.feature_importances_))
+        # If wrapped in a pipeline, try to access last step
+        elif hasattr(self.model, "named_steps"):
+            last_step = list(self.model.named_steps.values())[-1]
+            if hasattr(last_step, "feature_importances_"):
+                return dict(zip(last_step.feature_names_in_, last_step.feature_importances_))
+        return None
