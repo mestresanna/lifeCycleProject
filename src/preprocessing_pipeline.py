@@ -14,7 +14,7 @@ def load_data(data_path: str, ibovespa_path: str, output_path: str = "../data/20
     Load raw stock and benchmark (Ibovespa) data from CSV files.
     """
     stock_df = pd.read_csv(data_path, low_memory=False)
-    stock_df['date'] = pd.to_datetime(stock_df['date'])
+    stock_df['date'] = pd.to_datetime(stock_df['date'], format='%Y%m%d', errors='coerce')
     selected_tickers = tickers
     df_filtered = stock_df[stock_df['ticker'].isin(selected_tickers)]
     os.makedirs("data", exist_ok=True)
@@ -105,7 +105,7 @@ class DataPreprocessor():
         4. Engineer new features
         5. Save final dataset
         """
-        output_path = "../data/2023_stock_with_features.csv"
+        output_path = "../data/2023_stock_with_features_dif_tickers.csv"
 
         # Step 1: Load data
         ds, ibov = load_data(self.data_path, self.ibovespa_path, self.output_path, self.tickers)
