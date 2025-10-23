@@ -2,6 +2,7 @@ from itertools import product
 from sklearn.metrics import precision_score
 import pandas as pd
 from xgboost import XGBClassifier
+
 from xgboost_backtest import backtest
 
 def grid_search_xgb(df, features, param_grid, start=1000, step=1000, threshold=0.6, alpha=0.7):
@@ -92,6 +93,8 @@ param_grid = {
     'colsample_bytree': [0.6, 0.8],
     'reg_lambda': [1, 5],
 }
+df = pd.read_csv("../data/2019-2023_stock_with_features_dif_tickers.csv")
+features = ['quantity', 'volume', 'ibovespa_close', 'day_of_week', 'price_range', 'volume_per_quantity', 'rolling_std_5', 'rolling_return_5', 'momentum_5', 'rolling_volume_5', 'Trend_2', 'Close_Ratio_5', 'Trend_5', 'Close_Ratio_55', 'Trend_55', 'Close_Ratio_220']
 
 best_params, results = grid_search_xgb(df, features, param_grid)
 # -----------------------------

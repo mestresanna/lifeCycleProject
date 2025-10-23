@@ -82,7 +82,6 @@ def engineer_features(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
     df['day_of_week'] = df['day_of_week'].map(day_map)
 
     df.replace([float("inf"), float("-inf")], pd.NA, inplace=True)
-    df = df.infer_objects(copy=False)
     df.dropna(subset=['daily_return', 'price_range', 'volume_per_quantity'], inplace=True)
 
     # --- Tomorrow ---
@@ -104,6 +103,8 @@ def engineer_features(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
 
     for horizon in horizons:
         ratio_col = f"Close_Ratio_{horizon}"
+        trend_col = f"Trend_{horizon}"
+
         df[ratio_col] = df.groupby('ticker')['close'].transform(lambda x: x / x.rolling(horizon).mean())
 
         trend_col = f"Trend_{horizon}"
@@ -126,6 +127,13 @@ def engineer_features(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
         'ibovespa_close', 'day_of_week', 'daily_return', 'price_range', 'volume_per_quantity',
         'rolling_close_5', 'rolling_std_5', 'rolling_return_5', 'momentum_5', 'rolling_volume_5'
     ] + new_predictors
+
+    drop_features = ['open', 'close', 'min', 'max', 'avg', 'daily_return', 'rolling_close_5', 'Trend_220',
+                     'Close_Ratio_2']
+    features = [f for f in features if f not in drop_features]
+    df.drop(drop_features, axis=1, inplace=True)
+
+    print(features)
 
     return df, features
 

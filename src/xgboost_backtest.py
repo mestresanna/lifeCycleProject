@@ -12,53 +12,55 @@ df['date'] = pd.to_datetime(df['date'])
 # -----------------------------
 # 2️⃣ Engineer features & binary target
 # -----------------------------
-def engineer_features(df: pd.DataFrame):
-    df['day_of_week'] = df['date'].dt.day_name()
-    df['daily_return'] = (df['close'] - df['open']) / df['open']
-    df['price_range'] = df['max'] - df['min']
-    df['volume_per_quantity'] = df['volume'] / df['quantity']
+# def engineer_features(df: pd.DataFrame):
+#     df['day_of_week'] = df['date'].dt.day_name()
+#     df['daily_return'] = (df['close'] - df['open']) / df['open']
+#     df['price_range'] = df['max'] - df['min']
+#     df['volume_per_quantity'] = df['volume'] / df['quantity']
+#
+#     day_map = {'Monday':1,'Tuesday':2,'Wednesday':3,'Thursday':4,'Friday':5}
+#     df['day_of_week'] = df['day_of_week'].map(day_map)
+#
+#     df.replace([float("inf"), float("-inf")], pd.NA, inplace=True)
+#     df.dropna(subset=['daily_return', 'price_range', 'volume_per_quantity'], inplace=True)
+#
+#     df['tomorrow'] = df.groupby('ticker')['close'].shift(-1)
+#     df['target'] = (df['tomorrow'] > df['close']).astype(int)
+#
+#     df['rolling_close_5'] = df.groupby('ticker')['close'].transform(lambda x: x.shift(1).rolling(5).mean())
+#     df['rolling_std_5'] = df.groupby('ticker')['close'].transform(lambda x: x.shift(1).rolling(5).std())
+#     df['rolling_return_5'] = df.groupby('ticker')['daily_return'].transform(lambda x: x.shift(1).rolling(5).mean())
+#     df['rolling_volume_5'] = df.groupby('ticker')['volume'].transform(lambda x: x.shift(1).rolling(5).mean())
+#     df['momentum_5'] = df['close'] / df['rolling_close_5'] - 1
+#
+#     horizons = [2, 5, 55, 220]
+#     new_predictors = []
+#     for horizon in horizons:
+#         ratio_col = f"Close_Ratio_{horizon}"
+#         trend_col = f"Trend_{horizon}"
+#         df[ratio_col] = df.groupby('ticker')['close'].transform(lambda x: x / x.rolling(horizon).mean())
+#         df[trend_col] = df.groupby('ticker')['target'].transform(lambda x: x.shift(1).rolling(horizon).sum())
+#         new_predictors += [ratio_col, trend_col]
+#
+#     df.dropna(subset=['rolling_close_5','rolling_std_5','rolling_return_5','rolling_volume_5','momentum_5','target'] + new_predictors, inplace=True)
+#
+#     features = [
+#         'open','close','min','max','avg','quantity','volume',
+#         'ibovespa_close','day_of_week','daily_return','price_range','volume_per_quantity',
+#         'rolling_close_5','rolling_std_5','rolling_return_5','momentum_5','rolling_volume_5'
+#     ] + new_predictors
+#
+#     return df, features
+#
+# df, features = engineer_features(df)
+#
+# # -----------------------------
+# # 🎯 Drop low-importance features
+# # -----------------------------
+# drop_features = ['open','close','min','max','avg','daily_return','rolling_close_5','Trend_220','Close_Ratio_2']
+# features = [f for f in features if f not in drop_features]
+features = ['quantity', 'volume', 'ibovespa_close', 'day_of_week', 'price_range', 'volume_per_quantity', 'rolling_std_5', 'rolling_return_5', 'momentum_5', 'rolling_volume_5', 'Trend_2', 'Close_Ratio_5', 'Trend_5', 'Close_Ratio_55', 'Trend_55', 'Close_Ratio_220']
 
-    day_map = {'Monday':1,'Tuesday':2,'Wednesday':3,'Thursday':4,'Friday':5}
-    df['day_of_week'] = df['day_of_week'].map(day_map)
-
-    df.replace([float("inf"), float("-inf")], pd.NA, inplace=True)
-    df.dropna(subset=['daily_return', 'price_range', 'volume_per_quantity'], inplace=True)
-
-    df['tomorrow'] = df.groupby('ticker')['close'].shift(-1)
-    df['target'] = (df['tomorrow'] > df['close']).astype(int)
-
-    df['rolling_close_5'] = df.groupby('ticker')['close'].transform(lambda x: x.shift(1).rolling(5).mean())
-    df['rolling_std_5'] = df.groupby('ticker')['close'].transform(lambda x: x.shift(1).rolling(5).std())
-    df['rolling_return_5'] = df.groupby('ticker')['daily_return'].transform(lambda x: x.shift(1).rolling(5).mean())
-    df['rolling_volume_5'] = df.groupby('ticker')['volume'].transform(lambda x: x.shift(1).rolling(5).mean())
-    df['momentum_5'] = df['close'] / df['rolling_close_5'] - 1
-
-    horizons = [2, 5, 55, 220]
-    new_predictors = []
-    for horizon in horizons:
-        ratio_col = f"Close_Ratio_{horizon}"
-        trend_col = f"Trend_{horizon}"
-        df[ratio_col] = df.groupby('ticker')['close'].transform(lambda x: x / x.rolling(horizon).mean())
-        df[trend_col] = df.groupby('ticker')['target'].transform(lambda x: x.shift(1).rolling(horizon).sum())
-        new_predictors += [ratio_col, trend_col]
-
-    df.dropna(subset=['rolling_close_5','rolling_std_5','rolling_return_5','rolling_volume_5','momentum_5','target'] + new_predictors, inplace=True)
-
-    features = [
-        'open','close','min','max','avg','quantity','volume',
-        'ibovespa_close','day_of_week','daily_return','price_range','volume_per_quantity',
-        'rolling_close_5','rolling_std_5','rolling_return_5','momentum_5','rolling_volume_5'
-    ] + new_predictors
-
-    return df, features
-
-df, features = engineer_features(df)
-
-# -----------------------------
-# 🎯 Drop low-importance features
-# -----------------------------
-drop_features = ['open','close','min','max','avg','daily_return','rolling_close_5','Trend_220','Close_Ratio_2']
-features = [f for f in features if f not in drop_features]
 
 # -----------------------------
 # 3️⃣ Define GPU XGBoost model
@@ -80,12 +82,12 @@ features = [f for f in features if f not in drop_features]
 model = XGBClassifier(
     n_estimators=200,
     max_depth=3,
-    learning_rate=0.01,
-    subsample=0.8,
-    colsample_bytree=0.6,
+    learning_rate=0.05,
+    subsample=0.6,
+    colsample_bytree=0.8,
     gamma=0.2,
     reg_alpha=2,
-    reg_lambda=1,
+    reg_lambda=5,
     tree_method='hist',
     random_state=1
 )

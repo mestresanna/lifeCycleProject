@@ -9,7 +9,6 @@ import time
 # 1️⃣ Load Data
 # -----------------------------
 df = pd.read_csv("../data/2019-2023_stock_with_features_dif_tickers.csv")
-df['date'] = pd.to_datetime(df['date'])
 
 # -----------------------------
 # 2️⃣ Engineer features & binary target
