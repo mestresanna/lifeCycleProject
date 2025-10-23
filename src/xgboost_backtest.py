@@ -7,63 +7,18 @@ import time
 # 1️⃣ Load Data
 # -----------------------------
 df = pd.read_csv("../data/2019-2023_stock_with_features_dif_tickers.csv")
-df['date'] = pd.to_datetime(df['date'])
 
-# -----------------------------
-# 2️⃣ Engineer features & binary target
-# -----------------------------
-# def engineer_features(df: pd.DataFrame):
-#     df['day_of_week'] = df['date'].dt.day_name()
-#     df['daily_return'] = (df['close'] - df['open']) / df['open']
-#     df['price_range'] = df['max'] - df['min']
-#     df['volume_per_quantity'] = df['volume'] / df['quantity']
-#
-#     day_map = {'Monday':1,'Tuesday':2,'Wednesday':3,'Thursday':4,'Friday':5}
-#     df['day_of_week'] = df['day_of_week'].map(day_map)
-#
-#     df.replace([float("inf"), float("-inf")], pd.NA, inplace=True)
-#     df.dropna(subset=['daily_return', 'price_range', 'volume_per_quantity'], inplace=True)
-#
-#     df['tomorrow'] = df.groupby('ticker')['close'].shift(-1)
-#     df['target'] = (df['tomorrow'] > df['close']).astype(int)
-#
-#     df['rolling_close_5'] = df.groupby('ticker')['close'].transform(lambda x: x.shift(1).rolling(5).mean())
-#     df['rolling_std_5'] = df.groupby('ticker')['close'].transform(lambda x: x.shift(1).rolling(5).std())
-#     df['rolling_return_5'] = df.groupby('ticker')['daily_return'].transform(lambda x: x.shift(1).rolling(5).mean())
-#     df['rolling_volume_5'] = df.groupby('ticker')['volume'].transform(lambda x: x.shift(1).rolling(5).mean())
-#     df['momentum_5'] = df['close'] / df['rolling_close_5'] - 1
-#
-#     horizons = [2, 5, 55, 220]
-#     new_predictors = []
-#     for horizon in horizons:
-#         ratio_col = f"Close_Ratio_{horizon}"
-#         trend_col = f"Trend_{horizon}"
-#         df[ratio_col] = df.groupby('ticker')['close'].transform(lambda x: x / x.rolling(horizon).mean())
-#         df[trend_col] = df.groupby('ticker')['target'].transform(lambda x: x.shift(1).rolling(horizon).sum())
-#         new_predictors += [ratio_col, trend_col]
-#
-#     df.dropna(subset=['rolling_close_5','rolling_std_5','rolling_return_5','rolling_volume_5','momentum_5','target'] + new_predictors, inplace=True)
-#
-#     features = [
-#         'open','close','min','max','avg','quantity','volume',
-#         'ibovespa_close','day_of_week','daily_return','price_range','volume_per_quantity',
-#         'rolling_close_5','rolling_std_5','rolling_return_5','momentum_5','rolling_volume_5'
-#     ] + new_predictors
-#
-#     return df, features
-#
-# df, features = engineer_features(df)
-#
-# # -----------------------------
-# # 🎯 Drop low-importance features
-# # -----------------------------
-# drop_features = ['open','close','min','max','avg','daily_return','rolling_close_5','Trend_220','Close_Ratio_2']
-# features = [f for f in features if f not in drop_features]
 features = ['quantity', 'volume', 'ibovespa_close', 'day_of_week', 'price_range', 'volume_per_quantity', 'rolling_std_5', 'rolling_return_5', 'momentum_5', 'rolling_volume_5', 'Trend_2', 'Close_Ratio_5', 'Trend_5', 'Close_Ratio_55', 'Trend_55', 'Close_Ratio_220']
 
+# drop low importance features to show how it performs, better precision? lower overfitting?
+feature_to_drop = ['quantity']
+features = [f for f in features if f not in feature_to_drop]
+
+df = df.drop(columns=feature_to_drop)
+
 
 # -----------------------------
-# 3️⃣ Define GPU XGBoost model
+# 3️⃣ Define GPU XGBoost model - initial model
 # -----------------------------
 # model = XGBClassifier(
 #     n_estimators=200,
@@ -81,11 +36,12 @@ features = ['quantity', 'volume', 'ibovespa_close', 'day_of_week', 'price_range'
 # best grid params model testing
 model = XGBClassifier(
     n_estimators=200,
-    max_depth=3,
+    max_depth=2,
     learning_rate=0.05,
+    min_child_weight=5,
     subsample=0.6,
-    colsample_bytree=0.8,
-    gamma=0.2,
+    colsample_bytree=0.6,
+    gamma=1,
     reg_alpha=2,
     reg_lambda=5,
     tree_method='hist',
@@ -95,7 +51,7 @@ model = XGBClassifier(
 # -----------------------------
 # 4️⃣ Backtest helper
 # -----------------------------
-def backtest(df, model, features, start=1000, step=1000, threshold=0.6):
+def backtest(df, model, features, start=2000, step=1000, threshold=0.6):
     all_preds = []
 
     train_precisions, test_precisions = [], []
@@ -130,57 +86,51 @@ def backtest(df, model, features, start=1000, step=1000, threshold=0.6):
     return preds_df
 
 # time-series cross-validation technique,ensures the model’s strong precision isn’t just due to one lucky time split.
-def walk_forward_validation(df, features, model_params, start_values, step_values, threshold=0.6):
-    results = []
-
-    for start in start_values:
-        for step in step_values:
-            print(f"\n🚶 Walk-forward with start={start}, step={step}")
-            model = XGBClassifier(**model_params, tree_method='hist', random_state=1)
-
-            preds = backtest(df, model, features, start=start, step=step, threshold=threshold)
-
-            train_prec = preds.attrs.get('train_precision', None)
-            test_prec = preds.attrs.get('test_precision', None)
-
-            overall_prec = precision_score(preds['target'], preds['Predictions'])
-            overfit_ratio = train_prec / test_prec if test_prec else None
-
-            print(f"  ▶️ Train Precision: {train_prec:.3f}, Test Precision: {test_prec:.3f}, "
-                  f"Overall Precision: {overall_prec:.3f}, Overfit Ratio: {overfit_ratio:.2f}")
-
-            results.append({
-                'start': start,
-                'step': step,
-                'train_precision': train_prec,
-                'test_precision': test_prec,
-                'overall_precision': overall_prec,
-                'overfit_ratio': overfit_ratio
-            })
-
-    results_df = pd.DataFrame(results)
-    print("\n=== Walk-Forward Summary ===")
-    print(results_df.sort_values(by='overall_precision', ascending=False))
-
-
-    return results_df
-
-# used for walk forward validation
-# best_params = {
-#     'n_estimators': 200,
-#     'max_depth': 3,
-#     'learning_rate': 0.05,
-#     'subsample': 0.6,
-#     'colsample_bytree': 0.6,
-#     'gamma': 0.3,
-#     'reg_alpha': 2,
-#     'reg_lambda': 8
-# }
+# def walk_forward_validation(df, features, model, start_values, step_values, threshold=0.6, alpha=0.7):
+#     results = []
+#
+#     for start in start_values:
+#         for step in step_values:
+#             print(f"\n🚶 Walk-forward with start={start}, step={step}")
+#
+#             preds = backtest(df, model, features, start=start, step=step, threshold=threshold)
+#
+#             train_prec = preds.attrs.get('train_precision', None)
+#             test_prec = preds.attrs.get('test_precision', None)
+#
+#             overall_prec = precision_score(preds['target'], preds['Predictions'])
+#             overfit_ratio = train_prec / test_prec if test_prec else None
+#
+#             # Compute balanced score
+#             balanced_score = test_prec - alpha * (overfit_ratio - 1) if overfit_ratio else None
+#
+#             print(f"  ▶️ Train Precision: {train_prec:.3f}, Test Precision: {test_prec:.3f}, "
+#                   f"Overall Precision: {overall_prec:.3f}, Overfit Ratio: {overfit_ratio:.2f}, "
+#                   f"Balanced Score: {balanced_score:.4f}")
+#
+#             results.append({
+#                 'start': start,
+#                 'step': step,
+#                 'train_precision': train_prec,
+#                 'test_precision': test_prec,
+#                 'overall_precision': overall_prec,
+#                 'overfit_ratio': overfit_ratio,
+#                 'balanced_score': balanced_score
+#             })
+#
+#     results_df = pd.DataFrame(results)
+#     print("\n=== Walk-Forward Summary ===")
+#     print(results_df.sort_values(by='balanced_score', ascending=False))
+#
+#     return results_df
+#
+#
+# # used for walk forward validation
 #
 # start_values = [500, 1000, 2000]
 # step_values = [500, 1000, 2000]
 #
-# wf_results = walk_forward_validation(df, features, best_params, start_values, step_values)
+# wf_results = walk_forward_validation(df, features, model, start_values, step_values)
 
 predictions = backtest(df, model, features)
 

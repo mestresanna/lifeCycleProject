@@ -63,9 +63,9 @@ def backtest_stepwise(df, model, features, start=2000, step=1500, threshold=0.6)
         if test_acc > 0:
             overfit_ratio = train_acc / test_acc
             overfit_ratios.append(overfit_ratio)
-            print(f"Overfit Ratio (Train/Test): {overfit_ratio:.3f}")
+            print(f"📊 Overfit Ratio (Train/Test): {overfit_ratio:.3f}")
         else:
-            print("Test accuracy is 0, skipping overfit ratio.")
+            print("⚠️ Test accuracy is 0, skipping overfit ratio.")
             overfit_ratios.append(float('nan'))
 
         # --- Timing & ETA ---
@@ -79,9 +79,9 @@ def backtest_stepwise(df, model, features, start=2000, step=1500, threshold=0.6)
     valid_ratios = [r for r in overfit_ratios if not pd.isna(r)]
     if valid_ratios:
         avg_ratio = sum(valid_ratios) / len(valid_ratios)
-        print(f"\nFinal Average Overfit Ratio across steps: {avg_ratio:.3f}")
+        print(f"\n🏁 Final Average Overfit Ratio across steps: {avg_ratio:.3f}")
     else:
-        print("\nNo valid overfit ratios calculated.")
+        print("\n⚠️ No valid overfit ratios calculated.")
 
     return pd.concat(all_preds)
 
