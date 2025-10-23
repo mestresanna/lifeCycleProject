@@ -6,3 +6,4 @@ seaborn==0.13.2
 scikit-learn==1.7.2
 tensorflow==2.20.0
 xgboost==3.0.5
+yfinance==0.2.66
