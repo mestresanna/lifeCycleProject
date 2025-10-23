@@ -86,7 +86,7 @@ def grid_search_xgb(df, features, param_grid, start=1000, step=1000, threshold=0
     return best_params, results
 
 best_depth = 3
-best_lr = 0.5
+best_lr = 0.05
 
 param_grid = {
     'max_depth': [best_depth-1, best_depth, best_depth+1],  # [4, 5, 6]
