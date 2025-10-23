@@ -25,7 +25,7 @@ def load_data(data_path_pattern: str, ibovespa_path: str, output_path: str = "..
             df_year['date'] = pd.to_datetime(df_year['date'], format='%Y%m%d', errors='coerce')
             all_dfs.append(df_year)
         else:
-            print(f"⚠️ Warning: File {file_path} not found — skipping.")
+            print(f"Warning: File {file_path} not found — skipping.")
 
     if not all_dfs:
         raise FileNotFoundError("No yearly stock data files were found (2019–2023).")
@@ -37,7 +37,7 @@ def load_data(data_path_pattern: str, ibovespa_path: str, output_path: str = "..
 
     missing_tickers = [t for t in tickers if t not in stock_df['ticker'].unique()]
     if missing_tickers:
-        print(f"⚠️ Warning: The following chosen tickers were not found in the data: {missing_tickers}")
+        print(f"Warning: The following chosen tickers were not found in the data: {missing_tickers}")
     else:
         print("[load_data] All chosen tickers are present in the final DataFrame.")
     os.makedirs("data", exist_ok=True)
