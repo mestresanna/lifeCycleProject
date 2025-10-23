@@ -3,9 +3,13 @@ from xgboost import XGBClassifier
 from sklearn.metrics import precision_score, recall_score, accuracy_score
 import time
 
+from src.preprocessing_pipeline import DataPreprocessor
+
 # -----------------------------
 # 1️⃣ Load Data
 # -----------------------------
+process = DataPreprocessor()
+
 df = pd.read_csv("../data/2019-2023_stock_with_features_dif_tickers.csv")
 df['date'] = pd.to_datetime(df['date'])
 
@@ -81,11 +85,12 @@ features = ['quantity', 'volume', 'ibovespa_close', 'day_of_week', 'price_range'
 # best grid params model testing
 model = XGBClassifier(
     n_estimators=200,
-    max_depth=3,
+    max_depth=2,
     learning_rate=0.05,
     subsample=0.6,
-    colsample_bytree=0.8,
-    gamma=0.2,
+    min_child_weight=5,
+    colsample_bytree=0.6,
+    gamma=1,
     reg_alpha=2,
     reg_lambda=5,
     tree_method='hist',

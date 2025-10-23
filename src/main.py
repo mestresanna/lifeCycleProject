@@ -14,13 +14,11 @@ from preprocessing_pipeline import DataPreprocessor, engineer_features
 # -----------------------------
 # 1️⃣ Preprocess / Load Data
 # -----------------------------
-preprocessor = DataPreprocessor()
-df = preprocessor.run_pipeline()  # Loads, cleans, merges, engineers features, saves
-
-df = df.sort_values(by='date')
+df = pd.read_csv("../data/2023_stock_with_features.csv")
+df['date'] = pd.to_datetime(df['date'])
 
 # Map day_of_week to integer (Monday=1,...,Friday=5)
-df['day_of_week'] = df['date'].dt.day_name().map({'Monday':1,'Tuesday':2,'Wednesday':3,'Thursday':4,'Friday':5})
+#df['day_of_week'] = df['date'].dt.day_name().map({'Monday':1,'Tuesday':2,'Wednesday':3,'Thursday':4,'Friday':5})
 
 # -----------------------------
 # 2️⃣ Train/Test Split
@@ -45,7 +43,7 @@ if missing:
 
 # Drop NaNs caused by rolling features
 df = df.dropna(subset=features + ['target'])
-
+# If target is a future return — classify into 1 (up) or 0 (down)
 X_train = train_df[features]
 y_train = train_df['target']
 X_test = test_df[features]
@@ -99,11 +97,11 @@ print(results_df)
 # -----------------------------
 # 9️⃣ Optional: Feature Importances
 # -----------------------------
-# for model in models:
-#     fi = model.get_feature_importances()
-#     if fi is not None:
-#         print(f"\n=== Feature importances for {model.name} ===")
-#         print(fi)
+for model in models:
+ fi = model.get_feature_importances()
+ if fi is not None:
+     print(f"\n=== Feature importances for {model.name} ===")
+     print(fi)
 
 # -----------------------------
 # 10️⃣ Optional: Plots
