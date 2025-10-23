@@ -10,11 +10,11 @@ df = pd.read_csv("../data/2019-2023_stock_with_features_dif_tickers.csv")
 
 features = ['quantity', 'volume', 'ibovespa_close', 'day_of_week', 'price_range', 'volume_per_quantity', 'rolling_std_5', 'rolling_return_5', 'momentum_5', 'rolling_volume_5', 'Trend_2', 'Close_Ratio_5', 'Trend_5', 'Close_Ratio_55', 'Trend_55', 'Close_Ratio_220']
 
-# drop low importance features to show how it performs, better precision? lower overfitting?
-feature_to_drop = ['quantity']
-features = [f for f in features if f not in feature_to_drop]
-
-df = df.drop(columns=feature_to_drop)
+# # drop low importance features to show how it performs, better precision? lower overfitting?
+# feature_to_drop = ['volume']
+# features = [f for f in features if f not in feature_to_drop]
+#
+# df = df.drop(columns=feature_to_drop)
 
 
 # -----------------------------
@@ -76,9 +76,14 @@ def backtest(df, model, features, start=2000, step=1000, threshold=0.6):
     avg_train = sum(train_precisions) / len(train_precisions)
     avg_test = sum(test_precisions) / len(test_precisions)
     overfit_ratio = avg_train / avg_test
+
+    alpha = 0.7  # same as used in grid search
+    balanced_score = test_prec - alpha * (overfit_ratio - 1)
+
     print(f"Average Train Precision: {avg_train:.3f}")
     print(f"Average Test Precision:  {avg_test:.3f}")
     print(f"Overfitting Ratio: {overfit_ratio:.2f}")
+    print(f"Balanced Score: {balanced_score:.4f}")
 
     preds_df = pd.concat(all_preds)
     preds_df.attrs['train_precision'] = avg_train
@@ -148,8 +153,8 @@ print("=== Prediction Distribution ===")
 print(predictions['Predictions'].value_counts())
 print("\n=== Actual Distribution ===")
 print(predictions['target'].value_counts(normalize=True))
-print("\n=== Precision ===")
-print(precision_score(predictions['target'], predictions['Predictions']))
+
+print(f"Precision: {precision_score(predictions['target'], predictions['Predictions']):.2f}")
 
 recall = recall_score(predictions['target'], predictions['Predictions'])
 print(f"Recall: {recall:.4f}")
