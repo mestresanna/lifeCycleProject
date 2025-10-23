@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 # 1️⃣ Load Data
 # -----------------------------
 df = pd.read_csv("../data/2019-2023_stock_with_features_dif_tickers.csv")
-df['date'] = pd.to_datetime(df['date'])
 
 features = ['quantity', 'volume', 'ibovespa_close', 'day_of_week', 'price_range', 'volume_per_quantity',
             'rolling_std_5', 'rolling_return_5', 'momentum_5', 'rolling_volume_5', 'Trend_2',

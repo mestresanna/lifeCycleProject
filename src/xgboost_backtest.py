@@ -136,7 +136,7 @@ def backtest(df, model, features, start=2000, step=1000, threshold=0.6):
 # step_values = [500, 1000, 2000]
 #
 # wf_results = walk_forward_validation(df, features, model, start_values, step_values)
-
+print(df.shape)
 predictions = backtest(df, model, features)
 
 # -----------------------------
