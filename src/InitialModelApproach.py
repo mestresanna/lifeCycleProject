@@ -1,4 +1,9 @@
-# main.py
+"""
+This file used to use the pipeline, but due to project evolution the pipeline was changed and this file was left as history to display our first approach
+This file just displays our first model training and evaluation, giving us a direction as to which model to follow
+"""
+
+
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import PolynomialFeatures, StandardScaler
@@ -9,28 +14,23 @@ from xgboost import XGBClassifier
 
 from models.model_runner import ModelRunner
 from models.evaluator import ModelEvaluator
-from preprocessing_pipeline import DataPreprocessor, engineer_features
 
 # -----------------------------
-# 1️⃣ Preprocess / Load Data
+# Preprocess / Load Data
 # -----------------------------
-preprocessor = DataPreprocessor()
-df = preprocessor.run_pipeline()  # Loads, cleans, merges, engineers features, saves
+df = pd.read_csv("../data/2023_stock_with_features.csv")
 
 df = df.sort_values(by='date')
 
-# Map day_of_week to integer (Monday=1,...,Friday=5)
-df['day_of_week'] = df['date'].dt.day_name().map({'Monday':1,'Tuesday':2,'Wednesday':3,'Thursday':4,'Friday':5})
-
 # -----------------------------
-# 2️⃣ Train/Test Split
+# Train/Test Split
 # -----------------------------
 split_date = "2023-08-01"
 train_df = df[df['date'] < split_date]
 test_df = df[df['date'] >= split_date]
 
 # -----------------------------
-# 3️⃣ Feature Selection
+# Feature Selection
 # -----------------------------
 features = [
     'open', 'close', 'min', 'max', 'avg', 'quantity', 'volume',
@@ -52,7 +52,7 @@ X_test = test_df[features]
 y_test = test_df['target']
 
 # -----------------------------
-# 4️⃣ Scale numeric features
+# Scale numeric features
 # -----------------------------
 scaler = StandardScaler()
 cols_to_scale = [col for col in features if col != 'day_of_week']
@@ -64,7 +64,7 @@ X_test_scaled = X_test.copy()
 X_test_scaled[cols_to_scale] = scaler.transform(X_test_scaled[cols_to_scale])
 
 # -----------------------------
-# 5️⃣ Define Models
+# Define Models
 # -----------------------------
 models = [
     ModelRunner(LogisticRegression(max_iter=1000), name="LogisticRegression"),
@@ -78,35 +78,29 @@ models = [
 ]
 
 # -----------------------------
-# 6️⃣ Initialize Evaluator
+# Initialize Evaluator
 # -----------------------------
 evaluator = ModelEvaluator(class_labels=[0, 1])
 
 # -----------------------------
-# 7️⃣ Evaluate Models
+# Evaluate Models
 # -----------------------------
 for model in models:
     model.fit(X_train_scaled, y_train)
     evaluator.evaluate(model, X_test_scaled, y_test)
 
 # -----------------------------
-# 8️⃣ Display Results
+# Display Results
 # -----------------------------
 results_df = evaluator.get_results_dataframe()
 print("\n=== Model Performance Summary ===")
 print(results_df)
 
-# -----------------------------
-# 9️⃣ Optional: Feature Importances
-# -----------------------------
-# for model in models:
-#     fi = model.get_feature_importances()
-#     if fi is not None:
-#         print(f"\n=== Feature importances for {model.name} ===")
-#         print(fi)
+for model in models:
+    fi = model.get_feature_importances()
+    if fi is not None:
+        print(f"\n=== Feature importances for {model.name} ===")
+        print(fi)
 
-# -----------------------------
-# 10️⃣ Optional: Plots
-# evaluator.plot_confusion_matrices()
-# evaluator.plot_metric_comparison()
-# -----------------------------
+evaluator.plot_confusion_matrices()
+evaluator.plot_metric_comparison()
