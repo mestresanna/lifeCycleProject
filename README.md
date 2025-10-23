@@ -50,15 +50,15 @@ We selected the **B3 Historical Quotes** dataset, which contains comprehensive h
 ## Getting Started
 
 1. **Exploration of Data Set**:  
-   Data Collection and we implement Exploratory Data Analysis (EDA)
+   Data Collection and Exploratory Data Analysis (EDA)
 2. **Feature Engineering**:  
-    We collect more data from Ibovespa, create new features, and prevent leakage guards
+    Data Cleaning, Data collaction of ibovespa fo feature creation and add leakage guards
 3. **Evaluation First Models**:  
-    Run Models and evaluate with metrics
+    Run Models and evaluate metrics
 4. **Second Feature Engineering**:  
-    Implement new features and drop unnecesary, collect more data, add backtesting
+    Implement new features and drop unnecesary ones, collect more data and add backtesting
 5. **Evaluation Second Models**:  
-    Model Evaluation and Backtest performance analysis
+    Model Evaluation and Backtest perform analysis from RandomForest and XGBoost  
 6. **Evaluation Final Model**:  
     Implementation of the grid search and final evaluation of XGBoost
 
