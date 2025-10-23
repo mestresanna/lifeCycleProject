@@ -85,13 +85,18 @@ def grid_search_xgb(df, features, param_grid, start=1000, step=1000, threshold=0
     print(f"Best Balanced Score: {best_score:.4f}")
     return best_params, results
 
+best_depth = 3
+best_lr = 0.5
 
 param_grid = {
-    'max_depth': [3, 5, 7],
-    'learning_rate': [0.01, 0.05, 0.1],
+    'max_depth': [best_depth-1, best_depth, best_depth+1],  # [4, 5, 6]
+    'learning_rate': [best_lr/2, best_lr, best_lr*1.5],    # [0.025, 0.05, 0.075]
+    'min_child_weight': [1, 3, 5],
+    'gamma': [0, 0.5, 1],
+    'reg_alpha': [0, 1, 2],
     'subsample': [0.6, 0.8],
     'colsample_bytree': [0.6, 0.8],
-    'reg_lambda': [1, 5],
+
 }
 df = pd.read_csv("../data/2019-2023_stock_with_features_dif_tickers.csv")
 features = ['quantity', 'volume', 'ibovespa_close', 'day_of_week', 'price_range', 'volume_per_quantity', 'rolling_std_5', 'rolling_return_5', 'momentum_5', 'rolling_volume_5', 'Trend_2', 'Close_Ratio_5', 'Trend_5', 'Close_Ratio_55', 'Trend_55', 'Close_Ratio_220']

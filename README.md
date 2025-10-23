@@ -316,5 +316,39 @@ and precision goes up to:
 === Precision ===
 0.6959747727694305
 
-Best Grid params:
-![img.png](best_grid_params.png)
+best performing results with XGBoost after grid search and walk forward validation
+
+Average Train Precision: 0.753
+Average Test Precision:  0.664
+Overfitting Ratio: 1.13
+Close_Ratio_5             74.42
+momentum_5                65.63
+ibovespa_close            26.03
+rolling_std_5             21.26
+Close_Ratio_55            15.67
+rolling_return_5          12.51
+Trend_5                   11.51
+Trend_55                  10.80
+day_of_week               10.18
+price_range               9.99
+Trend_2                   9.79
+volume_per_quantity       7.99
+Close_Ratio_220           7.67
+rolling_volume_5          6.70
+volume                    5.68
+=== Prediction Distribution ===
+Predictions
+0    21922
+1     5065
+Name: count, dtype: int64
+
+=== Actual Distribution ===
+target
+0    0.508986
+1    0.491014
+Name: proportion, dtype: float64
+
+=== Precision ===
+0.6631786771964462
+Recall: 0.2535
+Accuracy: 0.5702

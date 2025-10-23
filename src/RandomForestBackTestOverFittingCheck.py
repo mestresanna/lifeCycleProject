@@ -1,4 +1,3 @@
-# stock_backtest_stepwise.py
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import precision_score, accuracy_score, recall_score
@@ -11,59 +10,9 @@ import matplotlib.pyplot as plt
 df = pd.read_csv("../data/2019-2023_stock_with_features_dif_tickers.csv")
 df['date'] = pd.to_datetime(df['date'])
 
-# -----------------------------
-# 2️⃣ Engineer features & binary target
-# -----------------------------
-def engineer_features(df: pd.DataFrame):
-    # Basic derived features
-    df['day_of_week'] = df['date'].dt.day_name()
-    df['daily_return'] = (df['close'] - df['open']) / df['open']
-    df['price_range'] = df['max'] - df['min']
-    df['volume_per_quantity'] = df['volume'] / df['quantity']
-
-    day_map = {'Monday':1,'Tuesday':2,'Wednesday':3,'Thursday':4,'Friday':5}
-    df['day_of_week'] = df['day_of_week'].map(day_map)
-
-    df.replace([float("inf"), float("-inf")], pd.NA, inplace=True)
-    df.dropna(subset=['daily_return', 'price_range', 'volume_per_quantity'], inplace=True)
-
-    # Tomorrow and binary target
-    df['tomorrow'] = df.groupby('ticker')['close'].shift(-1)
-    df['target'] = (df['tomorrow'] > df['close']).astype(int)
-
-    # Rolling features
-    df['rolling_close_5'] = df.groupby('ticker')['close'].transform(lambda x: x.shift(1).rolling(5).mean())
-    df['rolling_std_5'] = df.groupby('ticker')['close'].transform(lambda x: x.shift(1).rolling(5).std())
-    df['rolling_return_5'] = df.groupby('ticker')['daily_return'].transform(lambda x: x.shift(1).rolling(5).mean())
-    df['rolling_volume_5'] = df.groupby('ticker')['volume'].transform(lambda x: x.shift(1).rolling(5).mean())
-    df['momentum_5'] = df['close'] / df['rolling_close_5'] - 1
-
-    # Multi-horizon features
-    horizons = [2, 5, 55, 220]
-    new_predictors = []
-    for horizon in horizons:
-        ratio_col = f"Close_Ratio_{horizon}"
-        trend_col = f"Trend_{horizon}"
-        df[ratio_col] = df.groupby('ticker')['close'].transform(lambda x: x / x.rolling(horizon).mean())
-        df[trend_col] = df.groupby('ticker')['target'].transform(lambda x: x.shift(1).rolling(horizon).sum())
-        new_predictors += [ratio_col, trend_col]
-
-    # Drop NaNs
-    df.dropna(subset=[
-        'rolling_close_5','rolling_std_5','rolling_return_5',
-        'rolling_volume_5','momentum_5','target'
-    ] + new_predictors, inplace=True)
-
-    # Final feature list
-    features = [
-        'open','close','min','max','avg','quantity','volume',
-        'ibovespa_close','day_of_week','daily_return','price_range','volume_per_quantity',
-        'rolling_close_5','rolling_std_5','rolling_return_5','momentum_5','rolling_volume_5'
-    ] + new_predictors
-
-    return df, features
-
-df, features = engineer_features(df)
+features = ['quantity', 'volume', 'ibovespa_close', 'day_of_week', 'price_range', 'volume_per_quantity',
+            'rolling_std_5', 'rolling_return_5', 'momentum_5', 'rolling_volume_5', 'Trend_2',
+            'Close_Ratio_5', 'Trend_5', 'Close_Ratio_55', 'Trend_55', 'Close_Ratio_220']
 
 # -----------------------------
 # 3️⃣ Define model
@@ -74,10 +23,14 @@ model = RandomForestClassifier(n_estimators=200, min_samples_split=50, n_jobs=-1
 # 4️⃣ Helper functions
 # -----------------------------
 def evaluate_preds(y_true, y_pred, label="Evaluation"):
+    acc = accuracy_score(y_true, y_pred)
+    prec = precision_score(y_true, y_pred)
+    rec = recall_score(y_true, y_pred)
     print(f"\n=== {label} Metrics ===")
-    print("Accuracy:", round(accuracy_score(y_true, y_pred), 4))
-    print("Precision:", round(precision_score(y_true, y_pred), 4))
-    print("Recall:", round(recall_score(y_true, y_pred), 4))
+    print("Accuracy:", round(acc, 4))
+    print("Precision:", round(prec, 4))
+    print("Recall:", round(rec, 4))
+    return acc, prec, rec
 
 def predict(train, test, predictors, model, threshold=0.6):
     model.fit(train[predictors], train['target'])
@@ -87,6 +40,7 @@ def predict(train, test, predictors, model, threshold=0.6):
 
 def backtest_stepwise(df, model, features, start=2000, step=1500, threshold=0.6):
     all_preds = []
+    overfit_ratios = []
     total_steps = (df.shape[0] - start) // step + 1
     start_time = time.time()
 
@@ -98,12 +52,21 @@ def backtest_stepwise(df, model, features, start=2000, step=1500, threshold=0.6)
         preds = predict(train, test, features, model, threshold)
         all_preds.append(preds)
 
-        # Evaluate training performance up to current step
+        # Evaluate training performance
         train_preds = model.predict(train[features])
-        evaluate_preds(train['target'], train_preds, label=f"Train Step {i}")
+        train_acc, _, _ = evaluate_preds(train['target'], train_preds, label=f"Train Step {i}")
 
-        # Evaluate test slice
-        evaluate_preds(test['target'], preds['Predictions'], label=f"Test Step {i}")
+        # Evaluate test performance
+        test_acc, _, _ = evaluate_preds(test['target'], preds['Predictions'], label=f"Test Step {i}")
+
+        # --- Overfit Ratio ---
+        if test_acc > 0:
+            overfit_ratio = train_acc / test_acc
+            overfit_ratios.append(overfit_ratio)
+            print(f"📊 Overfit Ratio (Train/Test): {overfit_ratio:.3f}")
+        else:
+            print("⚠️ Test accuracy is 0, skipping overfit ratio.")
+            overfit_ratios.append(float('nan'))
 
         # --- Timing & ETA ---
         elapsed = time.time() - start_time
@@ -111,6 +74,14 @@ def backtest_stepwise(df, model, features, start=2000, step=1500, threshold=0.6)
         remaining_steps = total_steps - i
         eta = remaining_steps * avg_per_step
         print(f"Step {i}/{total_steps} done. Elapsed: {elapsed:.1f}s, ETA: {eta / 60:.1f} min\n")
+
+    # --- Final average overfit ratio ---
+    valid_ratios = [r for r in overfit_ratios if not pd.isna(r)]
+    if valid_ratios:
+        avg_ratio = sum(valid_ratios) / len(valid_ratios)
+        print(f"\n🏁 Final Average Overfit Ratio across steps: {avg_ratio:.3f}")
+    else:
+        print("\n⚠️ No valid overfit ratios calculated.")
 
     return pd.concat(all_preds)
 
@@ -131,6 +102,3 @@ print("\n=== Prediction Distribution ===")
 print(predictions['Predictions'].value_counts())
 print("\n=== Actual Distribution ===")
 print(predictions['target'].value_counts(normalize=True))
-
-predictions.to_csv("../data/backtest_stepwise_predictions.csv", index=False)
-print("\n✅ Stepwise backtest predictions saved to '../data/backtest_stepwise_predictions.csv'")
