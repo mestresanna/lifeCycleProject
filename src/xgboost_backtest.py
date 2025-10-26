@@ -3,6 +3,11 @@ from xgboost import XGBClassifier
 from sklearn.metrics import precision_score, recall_score, accuracy_score
 import time
 
+# Average Train Precision: 0.753
+# Average Test Precision:  0.686
+# Overfitting Ratio: 1.10
+# Balanced Score: 0.5525
+
 # -----------------------------
 # 1️⃣ Load Data
 # -----------------------------
@@ -11,7 +16,7 @@ df = pd.read_csv("../data/2019-2023_stock_with_features_dif_tickers.csv")
 features = ['quantity', 'volume', 'ibovespa_close', 'day_of_week', 'price_range', 'volume_per_quantity', 'rolling_std_5', 'rolling_return_5', 'momentum_5', 'rolling_volume_5', 'Trend_2', 'Close_Ratio_5', 'Trend_5', 'Close_Ratio_55', 'Trend_55', 'Close_Ratio_220']
 
 # # drop low importance features to show how it performs, better precision? lower overfitting?
-# feature_to_drop = ['volume']
+# feature_to_drop = ['quantity','volume']
 # features = [f for f in features if f not in feature_to_drop]
 #
 # df = df.drop(columns=feature_to_drop)
@@ -37,13 +42,12 @@ features = ['quantity', 'volume', 'ibovespa_close', 'day_of_week', 'price_range'
 model = XGBClassifier(
     n_estimators=200,
     max_depth=2,
-    learning_rate=0.05,
-    min_child_weight=5,
+    learning_rate=0.025,
+    min_child_weight=1,
     subsample=0.6,
-    colsample_bytree=0.6,
-    gamma=1,
-    reg_alpha=2,
-    reg_lambda=5,
+    colsample_bytree=0.8,
+    gamma=0.5,
+    reg_alpha=1,
     tree_method='hist',
     random_state=1
 )
