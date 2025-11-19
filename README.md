@@ -1,5 +1,8 @@
 # LifeCycleProject
 
+LifecycleProject focuses on the full machine learning workflow using the B3 Historical Quotes dataset from the Brazilian stock exchange. The project includes exploratory data analysis, data preprocessing, and feature engineering in a reproducible pipeline. Multiple ML models were selected, tuned, and compared using proper validation techniques and performance metrics. Results were critically analyzed, design decisions justified, and the entire process documented in a structured notebook. The project also includes an optional model deployment through a simple endpoint.
+
+
 ## Predicting Next Day’s Close Movement (Positive / Negative)
 
 ---
